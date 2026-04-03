@@ -1,0 +1,5 @@
+# Render Configuration
+
+# Environment Variables
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+RENDER=true
