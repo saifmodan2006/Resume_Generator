@@ -30,7 +30,7 @@ const clientDist = join(rootDir, "client", "dist");
 
 function getPuppeteerLaunchOptions() {
   const isLinux = process.platform === "linux";
-  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
 
   return {
     headless: true,
@@ -128,8 +128,17 @@ app.post("/api/export-pdf", async (request, response) => {
   try {
     const payload = exportPdfRequestSchema.parse(request.body);
     const document = renderResumeDocument(payload.resume, payload.template);
+    const launchOptions = getPuppeteerLaunchOptions();
 
-    browser = await puppeteer.launch(getPuppeteerLaunchOptions());
+    console.log("[PDF Export] Environment config", {
+      NODE_ENV: process.env.NODE_ENV,
+      platform: process.platform,
+      PUPPETEER_CACHE_DIR: process.env.PUPPETEER_CACHE_DIR || "default",
+      PUPPETEER_EXECUTABLE_PATH: process.env.PUPPETEER_EXECUTABLE_PATH || "none",
+      launchOptions: JSON.stringify(launchOptions)
+    });
+
+    browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
     await page.setContent(document, {
@@ -152,8 +161,16 @@ app.post("/api/export-pdf", async (request, response) => {
       .setHeader("Content-Disposition", 'attachment; filename="resume.pdf"')
       .send(pdf);
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unable to export PDF.";
+    const errorOutput =
+      error instanceof Error && error.stack
+        ? `${error.message}\n${error.stack}`
+        : errorMsg;
+
+    console.error("[PDF Export] Error launching browser:", errorOutput);
+
     response.status(400).json({
-      error: error instanceof Error ? error.message : "Unable to export PDF."
+      error: errorMsg
     });
   } finally {
     if (browser) {

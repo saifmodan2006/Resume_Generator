@@ -1,8 +1,13 @@
-# Render Configuration for Puppeteer
-
-# This configuration sets Puppeteer to use the system installed Chrome instead of downloading Chromium.
-
-# Use the full path to the installed chrome
-puppeteer:
-  executablePath: '/usr/bin/google-chrome-stable'
-  skipChromiumDownload: true
+services:
+  - type: web
+    name: ai-resume-builder
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/.cache/puppeteer
