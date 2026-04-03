@@ -1,5 +1,8 @@
-# Render Configuration
+# Render Configuration for Puppeteer
 
-# Environment Variables
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-RENDER=true
+# This configuration sets Puppeteer to use the system installed Chrome instead of downloading Chromium.
+
+# Use the full path to the installed chrome
+puppeteer:
+  executablePath: '/usr/bin/google-chrome-stable'
+  skipChromiumDownload: true
