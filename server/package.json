@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "npx puppeteer browsers install chrome || true",
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "build": "node scripts/build-check.js"
+    "build": "npm run postinstall && node scripts/build-check.js"
   },
   "dependencies": {
     "dotenv": "latest",
