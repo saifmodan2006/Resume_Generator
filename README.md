@@ -46,3 +46,20 @@ npm start
 ```
 
 The backend serves the Vite build from `client/dist` in production.
+
+## Render Deployment
+
+Use these settings on Render for a single web service:
+
+- Build command: `npm install && npm run build`
+- Start command: `npm start`
+- Node version: `22`
+
+Environment variables:
+
+- `NODE_ENV=production`
+- `PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer`
+
+This project installs Chrome during `postinstall` (`npx puppeteer browsers install chrome`), which fixes the runtime error:
+
+`Could not find Chrome ... /opt/render/.cache/puppeteer`
