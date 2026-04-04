@@ -4,15 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "npx puppeteer browsers install chrome",
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "build": "npm run postinstall && node scripts/build-check.js"
+    "build": "node scripts/build-check.js"
   },
   "dependencies": {
     "dotenv": "latest",
     "express": "latest",
     "openai": "latest",
+    "pdfkit": "^0.17.2",
     "puppeteer": "latest",
     "zod": "latest"
   }

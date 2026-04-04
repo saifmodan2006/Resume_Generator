@@ -14,6 +14,7 @@ import {
   generateCoverLetterWithAI,
   generateResumeWithAI
 } from "./lib/openai.js";
+import { buildResumePdfBuffer } from "./lib/pdf-export.js";
 import {
   analyzeRequestSchema,
   coverLetterRequestSchema,
@@ -138,23 +139,31 @@ app.post("/api/export-pdf", async (request, response) => {
       launchOptions: JSON.stringify(launchOptions)
     });
 
-    browser = await puppeteer.launch(launchOptions);
+    let pdf;
+    try {
+      browser = await puppeteer.launch(launchOptions);
 
-    const page = await browser.newPage();
-    await page.setContent(document, {
-      waitUntil: "domcontentloaded"
-    });
+      const page = await browser.newPage();
+      await page.setContent(document, {
+        waitUntil: "domcontentloaded"
+      });
 
-    const pdf = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      margin: {
-        top: "18px",
-        right: "18px",
-        bottom: "18px",
-        left: "18px"
-      }
-    });
+      pdf = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        margin: {
+          top: "18px",
+          right: "18px",
+          bottom: "18px",
+          left: "18px"
+        }
+      });
+    } catch (launchError) {
+      console.warn("[PDF Export] Chromium unavailable, using PDFKit fallback", {
+        error: launchError instanceof Error ? launchError.message : "unknown"
+      });
+      pdf = await buildResumePdfBuffer(payload.resume);
+    }
 
     response
       .setHeader("Content-Type", "application/pdf")
