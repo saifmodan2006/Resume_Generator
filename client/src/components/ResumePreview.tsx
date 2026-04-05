@@ -7,7 +7,7 @@ interface ResumePreviewProps {
 
 export function ResumePreview({ resume, template }: ResumePreviewProps) {
   return (
-    <article className={`resume-sheet template-${template}`}>
+    <article id="resume-preview-sheet" className={`resume-sheet template-${template}`}>
       <header className="resume-header">
         <div>
           <p className="resume-kicker">ATS-Ready Resume</p>

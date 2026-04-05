@@ -17,6 +17,16 @@ import {
   TemplateName
 } from "./types";
 
+type Html2PdfModule = {
+  default?: () => {
+    set: (options: Record<string, unknown>) => {
+      from: (element: HTMLElement) => {
+        save: () => Promise<void>;
+      };
+    };
+  };
+};
+
 const STORAGE_KEY = "resume-forge-ai-draft";
 
 const defaultFormData: ResumeFormData = {
@@ -40,6 +50,43 @@ const defaultFormData: ResumeFormData = {
   education: [emptyEducation()],
   projects: [emptyProject()]
 };
+
+async function exportPreviewPdfInBrowser(fileName: string) {
+  const element = document.getElementById("resume-preview-sheet");
+
+  if (!element) {
+    throw new Error("Resume preview is not ready yet.");
+  }
+
+  const html2pdfModule = (await import("html2pdf.js")) as Html2PdfModule;
+  const html2pdf = html2pdfModule.default;
+
+  if (!html2pdf) {
+    throw new Error("Browser PDF exporter could not be loaded.");
+  }
+
+  await html2pdf()
+    .set({
+      margin: [8, 8, 8, 8],
+      filename: fileName,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff"
+      },
+      jsPDF: {
+        unit: "mm",
+        format: "a4",
+        orientation: "portrait"
+      },
+      pagebreak: {
+        mode: ["css", "legacy"]
+      }
+    })
+    .from(element)
+    .save();
+}
 
 function App() {
   const [formData, setFormData] = useState<ResumeFormData>(() => {
@@ -184,12 +231,22 @@ function App() {
 
   const handleExportPdf = () =>
     withBusyState("pdf", async () => {
-      setStatusMessage("Rendering PDF...");
+      const fileName = `${previewResume.fullName || "resume"}-resume.pdf`;
+
+      try {
+        setStatusMessage("Rendering high-quality PDF from preview...");
+        await exportPreviewPdfInBrowser(fileName);
+        setStatusMessage("PDF downloaded.");
+        return;
+      } catch {
+        setStatusMessage("Browser export unavailable, trying server export...");
+      }
+
       const blob = await exportPdf(previewResume, formData.template);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `${previewResume.fullName || "resume"}-resume.pdf`;
+      anchor.download = fileName;
       anchor.click();
       URL.revokeObjectURL(url);
       setStatusMessage("PDF downloaded.");
