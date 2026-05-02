@@ -98,8 +98,20 @@ export interface GeneratedResume {
 
 export interface ResumeAnalysis {
   matchScore: number;
+  scoreBreakdown: {
+    skills: number;
+    experience: number;
+    keywords: number;
+    education: number;
+    impact: number;
+  };
   matchingKeywords: string[];
   missingKeywords: string[];
+  keywordSuggestions: Array<{
+    keyword: string;
+    section: string;
+    suggestion: string;
+  }>;
   atsTips: string[];
   roleFitSummary: string;
 }
@@ -127,5 +139,15 @@ export interface AnalyzeResponse {
 
 export interface CoverLetterApiResponse {
   coverLetter: CoverLetterResponse;
+  meta: GenerationMeta;
+}
+
+export type BulletImproveMode = "stronger" | "metrics" | "ats" | "shorten";
+
+export interface ImproveBulletsResponse {
+  result: {
+    bullets: string[];
+    reason: string;
+  };
   meta: GenerationMeta;
 }

@@ -128,3 +128,40 @@ ${JSON.stringify(resume, null, 2)}
 
   return requestJson(prompt);
 }
+
+export async function improveBulletsWithAI({ formData, bullets, mode, context }) {
+  const modeInstructions = {
+    stronger: "Rewrite each bullet with a strong action verb, clearer ownership, and tighter business impact.",
+    metrics: "Rewrite each bullet to leave realistic placeholders for metrics where the source does not provide exact numbers. Do not invent numbers.",
+    ats: "Rewrite each bullet to naturally include relevant target-job keywords only when they fit the user's actual background.",
+    shorten: "Make each bullet concise, recruiter-friendly, and no more than 22 words."
+  };
+
+  const prompt = `
+Return JSON only. No markdown fences.
+
+Improve these resume bullets. Preserve facts, do not invent employers, tools, dates, or exact metrics. If a metric is missing and the mode asks for metrics, use bracketed placeholders such as [X%] or [number].
+
+Mode: ${mode}
+Instruction: ${modeInstructions[mode]}
+
+Use this JSON shape:
+{
+  "bullets": ["string"],
+  "reason": "string"
+}
+
+Context:
+${JSON.stringify(context, null, 2)}
+
+Target role: ${formData.targetRole}
+Target company: ${formData.targetCompany}
+Job description:
+${formData.jobDescription}
+
+Original bullets:
+${bullets}
+`;
+
+  return requestJson(prompt);
+}

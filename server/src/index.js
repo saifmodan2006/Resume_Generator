@@ -7,18 +7,21 @@ import { buildAnalysis } from "./lib/analysis.js";
 import {
   buildFallbackAnalysis,
   buildFallbackCoverLetter,
+  buildFallbackImprovedBullets,
   buildFallbackResume
 } from "./lib/fallbacks.js";
 import {
   analyzeResumeWithAI,
   generateCoverLetterWithAI,
-  generateResumeWithAI
+  generateResumeWithAI,
+  improveBulletsWithAI
 } from "./lib/openai.js";
 import { buildResumePdfBuffer } from "./lib/pdf-export.js";
 import {
   analyzeRequestSchema,
   coverLetterRequestSchema,
   exportPdfRequestSchema,
+  improveBulletsRequestSchema,
   resumeRequestSchema
 } from "./lib/schema.js";
 import { renderResumeDocument } from "./templates/resume-document.js";
@@ -47,6 +50,17 @@ function getPuppeteerLaunchOptions() {
   };
 }
 
+function enrichAnalysis(formData, resume, analysis) {
+  const fallback = buildAnalysis({ formData, resume });
+
+  return {
+    ...fallback,
+    ...analysis,
+    scoreBreakdown: analysis?.scoreBreakdown ?? fallback.scoreBreakdown,
+    keywordSuggestions: analysis?.keywordSuggestions ?? fallback.keywordSuggestions
+  };
+}
+
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/api/health", (_request, response) => {
@@ -63,7 +77,11 @@ app.post("/api/generate-resume", async (request, response) => {
     const aiResult = await generateResumeWithAI(formData).catch(() => null);
     const resume = aiResult?.data ?? buildFallbackResume(formData);
     const analysis = aiResult
-      ? (await analyzeResumeWithAI(formData, resume).catch(() => null))?.data ?? buildAnalysis({ formData, resume })
+      ? enrichAnalysis(
+          formData,
+          resume,
+          (await analyzeResumeWithAI(formData, resume).catch(() => null))?.data
+        )
       : buildFallbackAnalysis(formData, resume);
 
     response.json({
@@ -84,13 +102,13 @@ app.post("/api/generate-resume", async (request, response) => {
 app.post("/api/analyze-resume", async (request, response) => {
   try {
     const payload = analyzeRequestSchema.parse(request.body);
-    const aiResult = await analyzeResumeWithAI(
-      payload.formData,
-      payload.resume ?? buildFallbackResume(payload.formData)
-    ).catch(() => null);
+    const resume = payload.resume ?? buildFallbackResume(payload.formData);
+    const aiResult = await analyzeResumeWithAI(payload.formData, resume).catch(() => null);
 
     response.json({
-      analysis: aiResult?.data ?? buildAnalysis(payload),
+      analysis: aiResult?.data
+        ? enrichAnalysis(payload.formData, resume, aiResult.data)
+        : buildAnalysis({ formData: payload.formData, resume }),
       meta: {
         mode: aiResult ? "openai" : "demo",
         model: aiResult?.model || "local-fallback"
@@ -119,6 +137,25 @@ app.post("/api/generate-cover-letter", async (request, response) => {
   } catch (error) {
     response.status(400).json({
       error: error instanceof Error ? error.message : "Unable to generate cover letter."
+    });
+  }
+});
+
+app.post("/api/improve-bullets", async (request, response) => {
+  try {
+    const payload = improveBulletsRequestSchema.parse(request.body);
+    const aiResult = await improveBulletsWithAI(payload).catch(() => null);
+
+    response.json({
+      result: aiResult?.data ?? buildFallbackImprovedBullets(payload),
+      meta: {
+        mode: aiResult ? "openai" : "demo",
+        model: aiResult?.model || "local-fallback"
+      }
+    });
+  } catch (error) {
+    response.status(400).json({
+      error: error instanceof Error ? error.message : "Unable to improve bullets."
     });
   }
 });

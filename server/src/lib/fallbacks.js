@@ -150,3 +150,40 @@ export function buildFallbackCoverLetter(formData, resume) {
 export function buildFallbackAnalysis(formData, resume) {
   return buildAnalysis({ formData, resume });
 }
+
+export function buildFallbackImprovedBullets({ formData, bullets, mode }) {
+  const keywords = extractKeywords(formData.jobDescription).slice(0, 3);
+  const lines = cleanList(bullets, /\n/);
+  const actionMap = {
+    stronger: "Delivered",
+    metrics: "Improved",
+    ats: "Applied",
+    shorten: "Led"
+  };
+
+  const improved = lines.map((line, index) => {
+    const cleaned = line
+      .trim()
+      .replace(/^[\-\u2022]\s*/, "")
+      .replace(/[.!?]$/, "")
+      .replace(/^(built|created|delivered|designed|improved|launched|led|optimized|owned|reduced|scaled|shipped)\s+/i, "");
+    const keyword = keywords[index % Math.max(keywords.length, 1)];
+    const prefix = actionMap[mode] || "Delivered";
+    const metric = mode === "metrics" && !/\d/.test(cleaned) ? " by [X%]" : "";
+    const keywordText = mode === "ats" && keyword ? ` using ${keyword}` : "";
+    const normalized = `${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}`;
+    const sentence = `${prefix} ${normalized}${keywordText}${metric}`;
+
+    return mode === "shorten"
+      ? normalizeBullet(sentence.split(/\s+/).slice(0, 18).join(" "), index)
+      : normalizeBullet(sentence, index);
+  });
+
+  return {
+    bullets: improved.length > 0 ? improved : ["Delivered measurable results aligned to the target role."],
+    reason:
+      mode === "metrics"
+        ? "Added metric placeholders where exact numbers were not provided."
+        : "Rewrote bullets with stronger resume language while preserving the original facts."
+  };
+}

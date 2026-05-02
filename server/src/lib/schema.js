@@ -112,3 +112,16 @@ export const exportPdfRequestSchema = z.object({
   resume: generatedResumeSchema,
   template: z.enum(["aurora", "graphite", "linen"])
 });
+
+export const improveBulletsRequestSchema = z.object({
+  formData: formDataSchema,
+  bullets: z.string().default(""),
+  mode: z.enum(["stronger", "metrics", "ats", "shorten"]).default("stronger"),
+  context: z
+    .object({
+      section: z.enum(["experience", "project"]).default("experience"),
+      title: z.string().default(""),
+      company: z.string().default("")
+    })
+    .default({})
+});

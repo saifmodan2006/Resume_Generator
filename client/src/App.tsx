@@ -1,5 +1,11 @@
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
-import { analyzeResume, exportPdf, generateCoverLetter, generateResume } from "./api";
+import {
+  analyzeResume,
+  exportPdf,
+  generateCoverLetter,
+  generateResume,
+  improveBullets
+} from "./api";
 import { InsightPanel } from "./components/InsightPanel";
 import { ResumePreview } from "./components/ResumePreview";
 import {
@@ -11,6 +17,7 @@ import {
 import { sampleData } from "./sampleData";
 import {
   CoverLetterResponse,
+  BulletImproveMode,
   GeneratedResume,
   ResumeAnalysis,
   ResumeFormData,
@@ -28,6 +35,14 @@ type Html2PdfModule = {
 };
 
 const STORAGE_KEY = "resume-forge-ai-draft";
+const BULLET_IMPROVE_MODES: BulletImproveMode[] = ["stronger", "metrics", "ats", "shorten"];
+
+const bulletImproveLabels: Record<BulletImproveMode, string> = {
+  stronger: "Stronger",
+  metrics: "Add metrics",
+  ats: "ATS keywords",
+  shorten: "Shorten"
+};
 
 const defaultFormData: ResumeFormData = {
   personalInfo: {
@@ -225,6 +240,55 @@ function App() {
         setGenerationMode(response.meta);
         setStatusMessage("Cover letter generated.");
       });
+    }).catch((error: Error) => {
+      setStatusMessage(error.message);
+    });
+
+  const handleImproveExperienceBullets = (
+    id: string,
+    mode: BulletImproveMode,
+    context: { title: string; company: string; bullets: string }
+  ) =>
+    withBusyState(`improve-${id}-${mode}`, async () => {
+      if (!context.bullets.trim()) {
+        setStatusMessage("Add at least one achievement bullet before improving it.");
+        return;
+      }
+
+      setStatusMessage("Improving achievement bullets...");
+      const response = await improveBullets(formData, context.bullets, mode, {
+        section: "experience",
+        title: context.title,
+        company: context.company
+      });
+
+      updateCollectionItem("experiences", id, "bullets", response.result.bullets.join("\n"));
+      setGenerationMode(response.meta);
+      setStatusMessage(response.result.reason);
+    }).catch((error: Error) => {
+      setStatusMessage(error.message);
+    });
+
+  const handleImproveProjectImpact = (
+    id: string,
+    mode: BulletImproveMode,
+    context: { title: string; impact: string }
+  ) =>
+    withBusyState(`improve-${id}-${mode}`, async () => {
+      if (!context.impact.trim()) {
+        setStatusMessage("Add a project impact statement before improving it.");
+        return;
+      }
+
+      setStatusMessage("Improving project impact...");
+      const response = await improveBullets(formData, context.impact, mode, {
+        section: "project",
+        title: context.title
+      });
+
+      updateCollectionItem("projects", id, "impact", response.result.bullets.join("\n"));
+      setGenerationMode(response.meta);
+      setStatusMessage(response.result.reason);
     }).catch((error: Error) => {
       setStatusMessage(error.message);
     });
@@ -611,6 +675,26 @@ function App() {
                     rows={5}
                   />
                 </label>
+                <div className="ai-tool-row" aria-label={`Improve bullets for ${item.role || `role ${index + 1}`}`}>
+                  <span>AI bullet tools</span>
+                  {BULLET_IMPROVE_MODES.map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className="mini-button"
+                      onClick={() =>
+                        handleImproveExperienceBullets(item.id, mode, {
+                          title: item.role,
+                          company: item.company,
+                          bullets: item.bullets
+                        })
+                      }
+                      disabled={busyAction !== null}
+                    >
+                      {busyAction === `improve-${item.id}-${mode}` ? "Working..." : bulletImproveLabels[mode]}
+                    </button>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -774,6 +858,25 @@ function App() {
                     rows={3}
                   />
                 </label>
+                <div className="ai-tool-row" aria-label={`Improve project impact for ${item.name || `project ${index + 1}`}`}>
+                  <span>AI impact tools</span>
+                  {BULLET_IMPROVE_MODES.map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className="mini-button"
+                      onClick={() =>
+                        handleImproveProjectImpact(item.id, mode, {
+                          title: item.name,
+                          impact: item.impact
+                        })
+                      }
+                      disabled={busyAction !== null}
+                    >
+                      {busyAction === `improve-${item.id}-${mode}` ? "Working..." : bulletImproveLabels[mode]}
+                    </button>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -794,6 +897,7 @@ function App() {
           <InsightPanel
             analysis={analysis}
             coverLetter={coverLetter}
+            formData={formData}
             meta={generationMode}
             onCopyCoverLetter={handleCopyCoverLetter}
           />

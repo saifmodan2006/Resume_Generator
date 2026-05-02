@@ -1,8 +1,10 @@
 import {
   AnalyzeResponse,
+  BulletImproveMode,
   CoverLetterApiResponse,
   GenerateResumeResponse,
   GeneratedResume,
+  ImproveBulletsResponse,
   ResumeFormData
 } from "./types";
 
@@ -31,6 +33,19 @@ export const analyzeResume = (formData: ResumeFormData, resume?: GeneratedResume
 
 export const generateCoverLetter = (formData: ResumeFormData, resume?: GeneratedResume) =>
   postJson<CoverLetterApiResponse>("/api/generate-cover-letter", { formData, resume });
+
+export const improveBullets = (
+  formData: ResumeFormData,
+  bullets: string,
+  mode: BulletImproveMode,
+  context: { section: "experience" | "project"; title: string; company?: string }
+) =>
+  postJson<ImproveBulletsResponse>("/api/improve-bullets", {
+    formData,
+    bullets,
+    mode,
+    context
+  });
 
 export const exportPdf = async (
   resume: GeneratedResume,
