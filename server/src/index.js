@@ -236,6 +236,10 @@ app.use((request, response, next) => {
   response.sendFile(join(clientDist, "index.html"));
 });
 
-app.listen(port, () => {
-  console.log(`Resume builder server running on http://localhost:${port}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`Resume builder server running on http://localhost:${port}`);
+  });
+}
+
+export default app;
