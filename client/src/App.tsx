@@ -1,10 +1,15 @@
-import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   analyzeResume,
+  clearPersistedAuthUser,
   exportPdf,
   generateCoverLetter,
   generateResume,
-  improveBullets
+  getAuthConfig,
+  getPersistedAuthUser,
+  improveBullets,
+  persistAuthUser,
+  signInWithGoogle
 } from "./api";
 import { InsightPanel } from "./components/InsightPanel";
 import { ResumePreview } from "./components/ResumePreview";
@@ -24,6 +29,36 @@ import {
   TemplateName
 } from "./types";
 
+type GoogleCredentialResponse = {
+  credential?: string;
+};
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (options: {
+            client_id: string;
+            callback: (response: GoogleCredentialResponse) => void;
+          }) => void;
+          renderButton: (
+            element: HTMLElement,
+            options: {
+              theme: "outline" | "filled_blue" | "filled_black";
+              size: "large" | "medium" | "small";
+              shape: "rectangular" | "pill" | "circle" | "square";
+              text: "continue_with" | "signin_with" | "signup_with";
+              width?: number;
+            }
+          ) => void;
+          disableAutoSelect: () => void;
+        };
+      };
+    };
+  }
+}
+
 type Html2PdfModule = {
   default?: () => {
     set: (options: Record<string, unknown>) => {
@@ -36,6 +71,7 @@ type Html2PdfModule = {
 
 const STORAGE_KEY = "resume-forge-ai-draft";
 const BULLET_IMPROVE_MODES: BulletImproveMode[] = ["stronger", "metrics", "ats", "shorten"];
+const GOOGLE_SCRIPT_ID = "google-identity-services";
 
 const bulletImproveLabels: Record<BulletImproveMode, string> = {
   stronger: "Stronger",
@@ -103,7 +139,39 @@ async function exportPreviewPdfInBrowser(fileName: string) {
     .save();
 }
 
+function loadGoogleIdentityScript() {
+  return new Promise<void>((resolve, reject) => {
+    if (window.google?.accounts?.id) {
+      resolve();
+      return;
+    }
+
+    const existingScript = document.getElementById(GOOGLE_SCRIPT_ID) as HTMLScriptElement | null;
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Google sign-in script failed to load.")), {
+        once: true
+      });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = GOOGLE_SCRIPT_ID;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Google sign-in script failed to load."));
+    document.head.appendChild(script);
+  });
+}
+
 function App() {
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const [authUser, setAuthUser] = useState(() => getPersistedAuthUser());
+  const [authStatus, setAuthStatus] = useState("Sign in to start building your resume.");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ResumeFormData>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) {
@@ -132,6 +200,70 @@ function App() {
   const persistDraft = useEffectEvent((nextState: ResumeFormData) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
   });
+
+  const handleGoogleCredential = useEffectEvent(async (response: GoogleCredentialResponse) => {
+    if (!response.credential) {
+      setAuthStatus("Google did not return a sign-in credential.");
+      return;
+    }
+
+    setAuthBusy(true);
+    setAuthStatus("Verifying Google account...");
+
+    try {
+      const result = await signInWithGoogle(response.credential);
+      persistAuthUser(result.user);
+      setAuthUser(result.user);
+      setAuthStatus("Signed in.");
+    } catch (error) {
+      setAuthStatus(error instanceof Error ? error.message : "Google sign-in failed.");
+    } finally {
+      setAuthBusy(false);
+    }
+  });
+
+  useEffect(() => {
+    if (authUser) {
+      return;
+    }
+
+    getAuthConfig()
+      .then((config) => setGoogleClientId(config.googleClientId))
+      .catch((error: Error) => setAuthStatus(error.message));
+  }, [authUser]);
+
+  useEffect(() => {
+    if (authUser || !googleClientId || !googleButtonRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (cancelled || !window.google?.accounts?.id || !googleButtonRef.current) {
+          return;
+        }
+
+        googleButtonRef.current.innerHTML = "";
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleCredential
+        });
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: "outline",
+          size: "large",
+          shape: "pill",
+          text: "continue_with",
+          width: 280
+        });
+      })
+      .catch((error: Error) => setAuthStatus(error.message));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser, googleClientId, handleGoogleCredential]);
 
   useEffect(() => {
     persistDraft(formData);
@@ -351,11 +483,36 @@ function App() {
     });
   };
 
+  const handleSignOut = () => {
+    clearPersistedAuthUser();
+    window.google?.accounts.id.disableAutoSelect();
+    setAuthUser(null);
+    setAuthStatus("Signed out. Continue with Google to start again.");
+  };
+
   const templateOptions: Array<{ value: TemplateName; label: string }> = [
     { value: "aurora", label: "Aurora" },
     { value: "graphite", label: "Graphite" },
     { value: "linen", label: "Linen" }
   ];
+
+  if (!authUser) {
+    return (
+      <div className="auth-shell">
+        <div className="ambient ambient-one" />
+        <div className="ambient ambient-two" />
+        <section className="auth-panel glass-card">
+          <p className="eyebrow">AI Resume Builder</p>
+          <h1>Resume Forge AI</h1>
+          <p className="auth-copy">
+            Sign in once with Google to start your resume workspace. Your Google profile is verified on the server and saved in SQLite.
+          </p>
+          <div className="google-button-slot" ref={googleButtonRef} />
+          <p className="status-copy">{authBusy ? "Signing in..." : authStatus}</p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -371,11 +528,18 @@ function App() {
           </p>
         </div>
         <div className="hero-actions">
+          <div className="user-chip" title={authUser.email}>
+            {authUser.picture ? <img src={authUser.picture} alt="" /> : <span>{authUser.name.charAt(0)}</span>}
+            <strong>{authUser.name}</strong>
+          </div>
           <button type="button" className="secondary-button" onClick={handleLoadSample}>
             Load sample
           </button>
           <button type="button" className="secondary-button" onClick={handleReset}>
             Reset draft
+          </button>
+          <button type="button" className="secondary-button" onClick={handleSignOut}>
+            Sign out
           </button>
         </div>
       </header>

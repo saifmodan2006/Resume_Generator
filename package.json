@@ -18,6 +18,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "puppeteer-core": "^24.40.0"
   }
 }

@@ -1,9 +1,12 @@
 import {
   AnalyzeResponse,
+  AuthConfigResponse,
+  AuthUser,
   BulletImproveMode,
   CoverLetterApiResponse,
   GenerateResumeResponse,
   GeneratedResume,
+  GoogleAuthResponse,
   ImproveBulletsResponse,
   ResumeFormData
 } from "./types";
@@ -23,6 +26,43 @@ async function postJson<T>(url: string, body: unknown) {
   }
 
   return (await response.json()) as T;
+}
+
+export async function getAuthConfig() {
+  const response = await fetch("/api/auth/config");
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unable to load auth config" }));
+    throw new Error(error.error || "Unable to load auth config");
+  }
+
+  return (await response.json()) as AuthConfigResponse;
+}
+
+export const signInWithGoogle = (credential: string) =>
+  postJson<GoogleAuthResponse>("/api/auth/google", { credential });
+
+export function persistAuthUser(user: AuthUser) {
+  localStorage.setItem("resume-forge-auth-user", JSON.stringify(user));
+}
+
+export function getPersistedAuthUser() {
+  const saved = localStorage.getItem("resume-forge-auth-user");
+
+  if (!saved) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(saved) as AuthUser;
+  } catch {
+    localStorage.removeItem("resume-forge-auth-user");
+    return null;
+  }
+}
+
+export function clearPersistedAuthUser() {
+  localStorage.removeItem("resume-forge-auth-user");
 }
 
 export const generateResume = (formData: ResumeFormData) =>

@@ -12,6 +12,7 @@
     "@fontsource/source-serif-4": "latest",
     "@fontsource/space-grotesk": "latest",
     "@types/html2pdf.js": "^0.10.0",
+    "@vercel/analytics": "^2.0.1",
     "html2pdf.js": "^0.14.0",
     "react": "latest",
     "react-dom": "latest"

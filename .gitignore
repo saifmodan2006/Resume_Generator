@@ -3,3 +3,5 @@ client/.vite
 client/dist
 .env
 npm-debug.log*
+server/data/*.sqlite
+server/data/*.sqlite-*

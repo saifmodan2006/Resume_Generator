@@ -126,6 +126,24 @@ export interface GenerationMeta {
   model: string;
 }
 
+export interface AuthUser {
+  id: number;
+  googleSub: string;
+  email: string;
+  name: string;
+  picture: string | null;
+  createdAt: string;
+  lastSignIn: string;
+}
+
+export interface AuthConfigResponse {
+  googleClientId: string;
+}
+
+export interface GoogleAuthResponse {
+  user: AuthUser;
+}
+
 export interface GenerateResumeResponse {
   resume: GeneratedResume;
   analysis: ResumeAnalysis;

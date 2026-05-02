@@ -11,9 +11,11 @@
   "dependencies": {
     "dotenv": "latest",
     "express": "latest",
+    "google-auth-library": "^10.6.2",
     "openai": "latest",
     "pdfkit": "^0.17.2",
     "puppeteer": "latest",
+    "sqlite3": "^6.0.1",
     "zod": "latest"
   }
 }

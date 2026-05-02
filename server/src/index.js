@@ -3,7 +3,9 @@ import express from "express";
 import { join, resolve, dirname } from "node:path";
 import puppeteer from "puppeteer";
 import { fileURLToPath } from "node:url";
+import { OAuth2Client } from "google-auth-library";
 import { buildAnalysis } from "./lib/analysis.js";
+import { upsertGoogleUser } from "./lib/auth-db.js";
 import {
   buildFallbackAnalysis,
   buildFallbackCoverLetter,
@@ -31,6 +33,10 @@ const port = Number(process.env.PORT || 5050);
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(currentDir, "..", "..");
 const clientDist = join(rootDir, "client", "dist");
+const googleClientId =
+  process.env.GOOGLE_CLIENT_ID ||
+  "122819830627-dst4jjn14nc2noqen0561mmvk4144336.apps.googleusercontent.com";
+const googleOAuthClient = new OAuth2Client(googleClientId);
 
 function getPuppeteerLaunchOptions() {
   const isLinux = process.platform === "linux";
@@ -68,6 +74,47 @@ app.get("/api/health", (_request, response) => {
     ok: true,
     mode: process.env.OPENAI_API_KEY ? "openai-enabled" : "demo-fallback"
   });
+});
+
+app.get("/api/auth/config", (_request, response) => {
+  response.json({
+    googleClientId
+  });
+});
+
+app.post("/api/auth/google", async (request, response) => {
+  try {
+    const { credential } = request.body;
+
+    if (typeof credential !== "string" || credential.trim().length === 0) {
+      response.status(400).json({ error: "Google credential is required." });
+      return;
+    }
+
+    const ticket = await googleOAuthClient.verifyIdToken({
+      idToken: credential,
+      audience: googleClientId
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload.email || !payload.name) {
+      response.status(401).json({ error: "Google account details are incomplete." });
+      return;
+    }
+
+    const user = await upsertGoogleUser({
+      sub: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture
+    });
+
+    response.json({ user });
+  } catch (error) {
+    response.status(401).json({
+      error: error instanceof Error ? error.message : "Google sign-in failed."
+    });
+  }
 });
 
 app.post("/api/generate-resume", async (request, response) => {
