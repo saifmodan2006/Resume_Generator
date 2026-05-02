@@ -72,6 +72,8 @@ type Html2PdfModule = {
 const STORAGE_KEY = "resume-forge-ai-draft";
 const BULLET_IMPROVE_MODES: BulletImproveMode[] = ["stronger", "metrics", "ats", "shorten"];
 const GOOGLE_SCRIPT_ID = "google-identity-services";
+const DEFAULT_GOOGLE_CLIENT_ID =
+  "122819830627-dst4jjn14nc2noqen0561mmvk4144336.apps.googleusercontent.com";
 
 const bulletImproveLabels: Record<BulletImproveMode, string> = {
   stronger: "Stronger",
@@ -171,7 +173,7 @@ function App() {
   const [authUser, setAuthUser] = useState(() => getPersistedAuthUser());
   const [authStatus, setAuthStatus] = useState("Sign in to start building your resume.");
   const [authBusy, setAuthBusy] = useState(false);
-  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(DEFAULT_GOOGLE_CLIENT_ID);
   const [formData, setFormData] = useState<ResumeFormData>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) {
@@ -229,14 +231,11 @@ function App() {
 
     getAuthConfig()
       .then((config) => {
-        if (!config.authEnabled || !config.googleClientId) {
-          setAuthStatus("Google sign-in is not configured for this deployment.");
-          return;
-        }
-
-        setGoogleClientId(config.googleClientId);
+        setGoogleClientId(config.googleClientId || DEFAULT_GOOGLE_CLIENT_ID);
       })
-      .catch((error: Error) => setAuthStatus(error.message));
+      .catch(() => {
+        setGoogleClientId(DEFAULT_GOOGLE_CLIENT_ID);
+      });
   }, [authUser]);
 
   useEffect(() => {
