@@ -23,7 +23,6 @@ import { sampleData } from "./sampleData";
 import {
   CoverLetterResponse,
   BulletImproveMode,
-  AuthUser,
   GeneratedResume,
   ResumeAnalysis,
   ResumeFormData,
@@ -73,15 +72,6 @@ type Html2PdfModule = {
 const STORAGE_KEY = "resume-forge-ai-draft";
 const BULLET_IMPROVE_MODES: BulletImproveMode[] = ["stronger", "metrics", "ats", "shorten"];
 const GOOGLE_SCRIPT_ID = "google-identity-services";
-const guestUser: AuthUser = {
-  id: 0,
-  googleSub: "guest",
-  email: "guest@resume-forge.local",
-  name: "Guest Workspace",
-  picture: null,
-  createdAt: new Date(0).toISOString(),
-  lastSignIn: new Date(0).toISOString()
-};
 
 const bulletImproveLabels: Record<BulletImproveMode, string> = {
   stronger: "Stronger",
@@ -240,8 +230,7 @@ function App() {
     getAuthConfig()
       .then((config) => {
         if (!config.authEnabled || !config.googleClientId) {
-          persistAuthUser(guestUser);
-          setAuthUser(guestUser);
+          setAuthStatus("Google sign-in is not configured for this deployment.");
           return;
         }
 
@@ -523,7 +512,7 @@ function App() {
           <p className="eyebrow">AI Resume Builder</p>
           <h1>Resume Forge AI</h1>
           <p className="auth-copy">
-            Sign in with Google to start your resume workspace, or continue automatically when sign-in is not configured.
+            Sign in once with Google to start your resume workspace. Your Google profile is verified on the server and saved in SQLite.
           </p>
           <div className="google-button-slot" ref={googleButtonRef} />
           <p className="status-copy">{authBusy ? "Signing in..." : authStatus}</p>

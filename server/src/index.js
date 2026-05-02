@@ -33,8 +33,10 @@ const port = Number(process.env.PORT || 5050);
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(currentDir, "..", "..");
 const clientDist = join(rootDir, "client", "dist");
-const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || "";
-const googleOAuthClient = googleClientId ? new OAuth2Client(googleClientId) : null;
+const defaultGoogleClientId =
+  "122819830627-dst4jjn14nc2noqen0561mmvk4144336.apps.googleusercontent.com";
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || defaultGoogleClientId;
+const googleOAuthClient = new OAuth2Client(googleClientId);
 
 function getPuppeteerLaunchOptions() {
   const isLinux = process.platform === "linux";
