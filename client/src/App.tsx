@@ -228,7 +228,14 @@ function App() {
     }
 
     getAuthConfig()
-      .then((config) => setGoogleClientId(config.googleClientId))
+      .then((config) => {
+        if (!config.authEnabled || !config.googleClientId) {
+          setAuthStatus("Google sign-in is not configured for this deployment.");
+          return;
+        }
+
+        setGoogleClientId(config.googleClientId);
+      })
       .catch((error: Error) => setAuthStatus(error.message));
   }, [authUser]);
 

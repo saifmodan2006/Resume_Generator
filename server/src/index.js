@@ -33,10 +33,8 @@ const port = Number(process.env.PORT || 5050);
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(currentDir, "..", "..");
 const clientDist = join(rootDir, "client", "dist");
-const googleClientId =
-  process.env.GOOGLE_CLIENT_ID ||
-  "122819830627-dst4jjn14nc2noqen0561mmvk4144336.apps.googleusercontent.com";
-const googleOAuthClient = new OAuth2Client(googleClientId);
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || "";
+const googleOAuthClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 
 function getPuppeteerLaunchOptions() {
   const isLinux = process.platform === "linux";
@@ -78,12 +76,20 @@ app.get("/api/health", (_request, response) => {
 
 app.get("/api/auth/config", (_request, response) => {
   response.json({
-    googleClientId
+    authEnabled: Boolean(googleClientId),
+    googleClientId: googleClientId || null
   });
 });
 
 app.post("/api/auth/google", async (request, response) => {
   try {
+    if (!googleClientId || !googleOAuthClient) {
+      response.status(503).json({
+        error: "Google sign-in is not configured. Set GOOGLE_CLIENT_ID in the deployment environment."
+      });
+      return;
+    }
+
     const { credential } = request.body;
 
     if (typeof credential !== "string" || credential.trim().length === 0) {

@@ -137,7 +137,8 @@ export interface AuthUser {
 }
 
 export interface AuthConfigResponse {
-  googleClientId: string;
+  authEnabled: boolean;
+  googleClientId: string | null;
 }
 
 export interface GoogleAuthResponse {
