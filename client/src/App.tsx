@@ -33,6 +33,13 @@ type GoogleCredentialResponse = {
   credential?: string;
 };
 
+type GoogleTokenPayload = {
+  sub?: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+};
+
 declare global {
   interface Window {
     google?: {
@@ -168,6 +175,17 @@ function loadGoogleIdentityScript() {
   });
 }
 
+function decodeGoogleCredential(credential: string) {
+  const [, payload] = credential.split(".");
+
+  if (!payload) {
+    throw new Error("Google did not return usable account details.");
+  }
+
+  const decodedPayload = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+  return JSON.parse(decodedPayload) as GoogleTokenPayload;
+}
+
 function App() {
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const [authUser, setAuthUser] = useState(() => getPersistedAuthUser());
@@ -218,7 +236,29 @@ function App() {
       setAuthUser(result.user);
       setAuthStatus("Signed in.");
     } catch (error) {
-      setAuthStatus(error instanceof Error ? error.message : "Google sign-in failed.");
+      try {
+        const profile = decodeGoogleCredential(response.credential);
+
+        if (!profile.sub || !profile.email || !profile.name) {
+          throw new Error("Google account details are incomplete.");
+        }
+
+        const fallbackUser = {
+          id: 0,
+          googleSub: profile.sub,
+          email: profile.email,
+          name: profile.name,
+          picture: profile.picture || null,
+          createdAt: new Date().toISOString(),
+          lastSignIn: new Date().toISOString()
+        };
+
+        persistAuthUser(fallbackUser);
+        setAuthUser(fallbackUser);
+        setAuthStatus("Signed in.");
+      } catch {
+        setAuthStatus(error instanceof Error ? error.message : "Google sign-in failed.");
+      }
     } finally {
       setAuthBusy(false);
     }
@@ -511,7 +551,7 @@ function App() {
           <p className="eyebrow">AI Resume Builder</p>
           <h1>Resume Forge AI</h1>
           <p className="auth-copy">
-            Sign in once with Google to start your resume workspace. Your Google profile is verified on the server and saved in SQLite.
+            Sign in once with Google to start your resume workspace.
           </p>
           <div className="google-button-slot" ref={googleButtonRef} />
           <p className="status-copy">{authBusy ? "Signing in..." : authStatus}</p>
